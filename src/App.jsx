@@ -210,8 +210,6 @@ export default function BookingPortal() {
                     <option value="America/Chicago">Central Time</option>
                     <option value="America/Denver">Mountain Time</option>
                     <option value="America/Los_Angeles">Pacific Time</option>
-                    <option value="America/Phoenix">Arizona</option>
-                    <option value="Pacific/Honolulu">Hawaii</option>
                     </select>
                 </div>
                 </div>
@@ -282,6 +280,9 @@ export default function BookingPortal() {
                 {!status.includes('loading') && <Send size={20}/>}
             </button>
 
+            {/* MESSAGES */}
+            {status === 'error' && <div className="bg-red-50 text-red-700 p-3 rounded flex items-center gap-2 text-sm"><AlertTriangle size={16}/> {errorMessage}</div>}
+            
             {status === 'success' && (
                 <div className="bg-green-50 text-green-800 p-6 rounded-lg text-center mt-4">
                 <CheckCircle size={40} className="text-green-500 mx-auto mb-2"/>
