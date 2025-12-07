@@ -53,7 +53,7 @@ export default function BookingPortal() {
     try {
       // 🔴 IMPORTANT: Replace this with your NEW PAYPAL HEROKU URL
       // Example: 'https://rental-radar-paypal.herokuapp.com'
-      const HEROKU_URL = 'https://carrentalmailpaypal-29674cf49d1b.herokuapp.com/'; 
+      const HEROKU_URL = 'https://carrentalmailpaypal-29674cf49d1b.herokuapp.com'; 
       
       const response = await fetch(`${HEROKU_URL}/create-booking`, {
         method: 'POST',
