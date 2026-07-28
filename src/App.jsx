@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Send, MapPin, Car, DollarSign, CheckCircle, AlertTriangle, Phone, Globe, Calendar, Link as LinkIcon, CreditCard, User, Mail, Hash, Briefcase, History, Trash2 } from 'lucide-react';
 
 export default function BookingPortal() {
-  // 🔴 CONFIGURATION: Replace with your actual PayPal Heroku Backend URL
-  const BACKEND_URL = 'https://carrentalmailpaypal-29674cf49d1b.herokuapp.com'; 
+  // 🔴 CONFIGURATION: Replace with your actual Backend URL
+  const BACKEND_URL = 'https://carrentalmailpaypalback-67ed3349b7ca.herokuapp.com/'; 
 
   const [status, setStatus] = useState('idle'); 
   const [errorMessage, setErrorMessage] = useState('');
@@ -12,17 +12,27 @@ export default function BookingPortal() {
   const [activeTab, setActiveTab] = useState('new'); 
   const [history, setHistory] = useState([]);
 
-  // Load History on Mount
   useEffect(() => {
-    const rawHistory = JSON.parse(localStorage.getItem('paypalBookingHistory') || '[]');
+    const rawHistory = JSON.parse(localStorage.getItem('bookingHistory') || '[]');
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
     const validHistory = rawHistory.filter(item => item.timestamp ? item.timestamp > thirtyDaysAgo : true);
     setHistory(validHistory);
+    
     if (rawHistory.length !== validHistory.length) {
-        localStorage.setItem('paypalBookingHistory', JSON.stringify(validHistory));
+        localStorage.setItem('bookingHistory', JSON.stringify(validHistory));
     }
+    
+    // 🟢 NEW: Pull both Agent Name AND Agent Phone from local storage
     const savedAgent = localStorage.getItem('agentName');
-    if (savedAgent) setFormData(prev => ({ ...prev, agentName: savedAgent }));
+    const savedPhone = localStorage.getItem('agentPhone');
+    
+    if (savedAgent || savedPhone) {
+      setFormData(prev => ({ 
+        ...prev, 
+        ...(savedAgent && { agentName: savedAgent }),
+        ...(savedPhone && { agentPhone: savedPhone })
+      }));
+    }
   }, []);
 
   const [formData, setFormData] = useState({
@@ -36,27 +46,28 @@ export default function BookingPortal() {
     pickupDate: '',
     dropoffLocation: '',
     dropoffDate: '',
-    vehicleCategory: 'Compact Sedan',
+    vehicleCategory: '',
     vehicleModel: '',
     supplierName: '',
     supplierAmount: '',
     agencyFee: '',
     agentName: '',
+    agentPhone: '', // 🟢 NEW: Added field to state
     agentCommission: ''
   });
 
   const supplierVal = parseFloat(formData.supplierAmount || 0);
   const agencyVal = parseFloat(formData.agencyFee || 0);
   const totalTripCost = (supplierVal + agencyVal).toFixed(2);
-  
-  // Logic: "Pay at Counter" means we only charge Agency Fee online.
-  // "Full Prepayment" means we charge everything online.
   const amountToChargeNow = paymentType === 'prepaid' ? totalTripCost : agencyVal.toFixed(2);
   const amountDueAtCounter = paymentType === 'prepaid' ? '0.00' : supplierVal.toFixed(2);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    
+    // 🟢 NEW: Save phone to local storage alongside name
     if (e.target.name === 'agentName') localStorage.setItem('agentName', e.target.value);
+    if (e.target.name === 'agentPhone') localStorage.setItem('agentPhone', e.target.value);
   };
 
   const handleSubmit = async (e) => {
@@ -66,6 +77,7 @@ export default function BookingPortal() {
     setReviewLink('');
 
     try {
+      // The payload will automatically include agentPhone since it's in formData
       const response = await fetch(`${BACKEND_URL}/create-booking`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,7 +101,7 @@ export default function BookingPortal() {
         };
         const updatedHistory = [newRecord, ...history];
         setHistory(updatedHistory);
-        localStorage.setItem('paypalBookingHistory', JSON.stringify(updatedHistory));
+        localStorage.setItem('bookingHistory', JSON.stringify(updatedHistory));
 
         setTimeout(() => setStatus('idle'), 20000);
       } else {
@@ -103,9 +115,9 @@ export default function BookingPortal() {
   };
 
   const clearHistory = () => {
-      if(confirm("Are you sure you want to clear your local sales history?")) {
+      if(window.confirm("Are you sure you want to clear your local sales history?")) {
           setHistory([]);
-          localStorage.removeItem('paypalBookingHistory');
+          localStorage.removeItem('bookingHistory');
       }
   };
 
@@ -114,37 +126,37 @@ export default function BookingPortal() {
       
       {/* HEADER */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-4xl mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="bg-blue-800 p-2.5 rounded-lg text-white shadow-md">
+                    <div className="bg-blue-600 p-2.5 rounded-lg text-white shadow-blue-200 shadow-md">
                         <Car size={24} strokeWidth={2.5} />
                     </div>
                     <div>
                         <h1 className="text-xl font-bold text-slate-900 tracking-tight">The Rental Radar</h1>
-                        <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">PayPal Agent Portal</p>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Agent Booking Console</p>
                     </div>
                 </div>
                 {/* TAB SWITCHER */}
                 <div className="flex bg-slate-100 p-1 rounded-lg">
                     <button 
                         onClick={() => setActiveTab('new')}
-                        className={`px-4 py-2 text-xs font-bold rounded-md transition-all ${activeTab === 'new' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`px-4 py-2 text-xs font-bold rounded-md transition-all ${activeTab === 'new' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         New Booking
                     </button>
                     <button 
                         onClick={() => setActiveTab('history')}
-                        className={`px-4 py-2 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`px-4 py-2 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
-                        <History size={14}/> History
+                        <History size={14}/> Sales Log (30 Days)
                     </button>
                 </div>
             </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-6 py-8">
         
         {/* === TAB 1: NEW RESERVATION === */}
         {activeTab === 'new' && (
@@ -160,15 +172,21 @@ export default function BookingPortal() {
                 <Briefcase size={18} className="text-slate-400"/>
                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Agent Internal</h3>
                 </div>
-                <div className="p-6 grid grid-cols-2 gap-5">
-                <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Agent Name</label>
-                    <input required name="agentName" value={formData.agentName} onChange={handleChange} className="w-full p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Your Name" />
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Commission ($)</label>
-                    <input name="agentCommission" value={formData.agentCommission} onChange={handleChange} className="w-full p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Hidden from Client" />
-                </div>
+                
+                {/* 🟢 NEW: Changed grid from 2 cols to 3 cols to fit the new field neatly */}
+                <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Agent Name</label>
+                      <input required name="agentName" value={formData.agentName} onChange={handleChange} className="w-full p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Your Name" />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1"> Agent Direct Phone</label>
+                      <input required type="tel" name="agentPhone" value={formData.agentPhone} onChange={handleChange} className="w-full p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="+1 555 123 4567" />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Commission ($)</label>
+                      <input name="agentCommission" value={formData.agentCommission} onChange={handleChange} className="w-full p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Hidden from Client" />
+                  </div>
                 </div>
             </div>
 
@@ -210,6 +228,8 @@ export default function BookingPortal() {
                     <option value="America/Chicago">Central Time</option>
                     <option value="America/Denver">Mountain Time</option>
                     <option value="America/Los_Angeles">Pacific Time</option>
+                    <option value="America/Phoenix">Arizona</option>
+                    <option value="Pacific/Honolulu">Hawaii</option>
                     </select>
                 </div>
                 </div>
@@ -234,25 +254,23 @@ export default function BookingPortal() {
                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Financials</h3>
                 </div>
                 <div className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-5 mb-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Vehicle Model</label>
-                        <input required name="vehicleModel" value={formData.vehicleModel} onChange={handleChange} className="w-full p-2.5 border border-slate-200 rounded-lg" placeholder="e.g. Toyota Corolla" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Supplier Name</label>
-                        <input required name="supplierName" value={formData.supplierName} onChange={handleChange} className="w-full p-2.5 border border-slate-200 rounded-lg" placeholder="e.g. Hertz" />
-                    </div>
+                <div className="col-span-2 mb-4">
+                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Supplier Name</label>
+                    <input required name="supplierName" value={formData.supplierName} onChange={handleChange} className="w-full p-2.5 border border-slate-200 rounded-lg" placeholder="e.g. Hertz, Avis" />
+                </div>
+                <div className="col-span-2 mb-4">
+                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Vehicle Model</label>
+                    <input required name="vehicleModel" value={formData.vehicleModel} onChange={handleChange} className="w-full p-2.5 border border-slate-200 rounded-lg" placeholder="e.g. Toyota Corolla" />
                 </div>
                 <div className="grid grid-cols-2 gap-5">
                     <input required type="number" step="0.01" name="supplierAmount" value={formData.supplierAmount} onChange={handleChange} className="w-full p-2.5 border border-green-200 rounded-lg" placeholder="Supplier Cost $" />
                     <input required type="number" step="0.01" name="agencyFee" value={formData.agencyFee} onChange={handleChange} className="w-full p-2.5 border border-green-200 rounded-lg" placeholder="Agency Fee $" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div onClick={() => setPaymentType('prepaid')} className={`cursor-pointer border rounded-xl p-4 text-center ${paymentType === 'prepaid' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}>
+                    <div onClick={() => setPaymentType('prepaid')} className={`cursor-pointer border rounded-xl p-4 text-center ${paymentType === 'prepaid' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200'}`}>
                         <span className="font-bold text-sm text-slate-700">Full Prepayment</span>
                     </div>
-                    <div onClick={() => setPaymentType('pay_at_counter')} className={`cursor-pointer border rounded-xl p-4 text-center ${paymentType === 'pay_at_counter' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}>
+                    <div onClick={() => setPaymentType('pay_at_counter')} className={`cursor-pointer border rounded-xl p-4 text-center ${paymentType === 'pay_at_counter' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200'}`}>
                         <span className="font-bold text-sm text-slate-700">Pay at Counter</span>
                     </div>
                 </div>
@@ -275,19 +293,23 @@ export default function BookingPortal() {
             </div>
 
             {/* SUBMIT */}
-            <button type="submit" disabled={status === 'loading' || status === 'success'} className="w-full py-4 bg-blue-700 text-white font-bold text-lg rounded-xl hover:bg-blue-800 shadow-lg disabled:opacity-50 flex justify-center items-center gap-2">
-                {status === 'loading' ? 'Creating Order...' : `Send PayPal Link ($${amountToChargeNow})`} 
+            <button type="submit" disabled={status === 'loading' || status === 'success'} className="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-xl hover:bg-blue-700 shadow-lg disabled:opacity-50 flex justify-center items-center gap-2">
+                {status === 'loading' ? 'Generating...' : `Send Payment Link ($${amountToChargeNow})`} 
                 {!status.includes('loading') && <Send size={20}/>}
             </button>
 
-            {/* MESSAGES */}
-            {status === 'error' && <div className="bg-red-50 text-red-700 p-3 rounded flex items-center gap-2 text-sm"><AlertTriangle size={16}/> {errorMessage}</div>}
-            
+            {status === 'error' && (
+              <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-2">
+                <AlertTriangle size={20} className="text-red-500"/>
+                <span className="text-sm font-semibold">{errorMessage}</span>
+              </div>
+            )}
+
             {status === 'success' && (
                 <div className="bg-green-50 text-green-800 p-6 rounded-lg text-center mt-4">
                 <CheckCircle size={40} className="text-green-500 mx-auto mb-2"/>
-                <p className="font-bold">Success! PayPal Link Sent.</p>
-                <a href={reviewLink} target="_blank" className="text-sm font-bold text-blue-600 underline mt-2 block">Open Review Page</a>
+                <p className="font-bold">Success!</p>
+                <a href={reviewLink} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 underline">Open Link</a>
                 </div>
             )}
 
@@ -326,12 +348,8 @@ export default function BookingPortal() {
                             </div>
                             <div className="bg-gray-50 p-3 rounded border border-gray-100 text-xs">
                                 <div className="flex justify-between"><span>Total Trip Cost:</span> <strong>${totalTripCost}</strong></div>
-                                {paymentType === 'pay_at_counter' && (
-                                    <div className="flex justify-between text-red-500 mt-1">
-                                        <span>Payable to {formData.supplierName || "Supplier"}:</span> <strong>${amountDueAtCounter}</strong>
-                                    </div>
-                                )}
-                                <div className="flex justify-between text-green-600 font-bold mt-2 border-t pt-2"><span>DUE NOW (PayPal):</span> <span>${amountToChargeNow}</span></div>
+                                <div className="flex justify-between text-red-500 mt-1"><span>Payable to {formData.supplierName || "Supplier"}:</span> <strong>${amountDueAtCounter}</strong></div>
+                                <div className="flex justify-between text-green-600 font-bold mt-2 border-t pt-2"><span>DUE NOW:</span> <span>${amountToChargeNow}</span></div>
                             </div>
                             <div className="bg-blue-600 text-white text-center py-2 rounded font-bold text-xs mt-2">
                                 REVIEW CONTRACT & PAY ${amountToChargeNow}
@@ -382,7 +400,7 @@ export default function BookingPortal() {
                                         <td className="px-6 py-3 font-mono text-slate-500 text-xs">{item.conf}</td>
                                         <td className="px-6 py-3 text-right font-bold text-green-600">${item.amount}</td>
                                         <td className="px-6 py-3 text-center">
-                                            <a href={item.link} target="_blank" className="text-blue-600 hover:text-blue-800 font-semibold text-xs">View Contract</a>
+                                            <a href={item.link} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 font-semibold text-xs">View Contract</a>
                                         </td>
                                     </tr>
                                 ))}
