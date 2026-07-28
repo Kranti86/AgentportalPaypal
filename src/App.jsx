@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, MapPin, Car, DollarSign, CheckCircle, AlertTriangle, Phone, Globe, Calendar, Link as LinkIcon, CreditCard, User, Mail, Hash, Briefcase, History, Trash2 } from 'lucide-react';
 
 export default function BookingPortal() {
-  // 🔴 CONFIGURATION: Replace with your actual Backend URL
+  // 🔴 CONFIGURATION: Backend Base URL (Notice: no trailing slash)
   const BACKEND_URL = 'https://carrentalmailpaypalback-67ed3349b7ca.herokuapp.com'; 
 
   const [status, setStatus] = useState('idle'); 
@@ -22,7 +22,6 @@ export default function BookingPortal() {
         localStorage.setItem('bookingHistory', JSON.stringify(validHistory));
     }
     
-    // 🟢 NEW: Pull both Agent Name AND Agent Phone from local storage
     const savedAgent = localStorage.getItem('agentName');
     const savedPhone = localStorage.getItem('agentPhone');
     
@@ -52,7 +51,7 @@ export default function BookingPortal() {
     supplierAmount: '',
     agencyFee: '',
     agentName: '',
-    agentPhone: '', // 🟢 NEW: Added field to state
+    agentPhone: '',
     agentCommission: ''
   });
 
@@ -65,7 +64,6 @@ export default function BookingPortal() {
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     
-    // 🟢 NEW: Save phone to local storage alongside name
     if (e.target.name === 'agentName') localStorage.setItem('agentName', e.target.value);
     if (e.target.name === 'agentPhone') localStorage.setItem('agentPhone', e.target.value);
   };
@@ -77,14 +75,25 @@ export default function BookingPortal() {
     setReviewLink('');
 
     try {
-      // The payload will automatically include agentPhone since it's in formData
-      const response = await fetch(`${BACKEND_URL}/create-booking`, {
+      // 🛠️ FIX 1: Strip trailing slashes to guarantee a single slash in URL path
+      const cleanEndpoint = `${BACKEND_URL.replace(/\/+$/, '')}/create-booking`;
+
+      const response = await fetch(cleanEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, paymentType, amountToChargeNow }),
       });
 
-      const result = await response.json();
+      // 🛠️ FIX 2: Check Content-Type to prevent crashing on HTML 404/500 responses
+      const contentType = response.headers.get('content-type');
+      let result;
+
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        const rawText = await response.text();
+        throw new Error(`Server returned non-JSON response (${response.status}). Please verify API endpoint.`);
+      }
 
       if (response.ok && result.success) {
         setStatus('success');
@@ -173,14 +182,13 @@ export default function BookingPortal() {
                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Agent Internal</h3>
                 </div>
                 
-                {/* 🟢 NEW: Changed grid from 2 cols to 3 cols to fit the new field neatly */}
                 <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div>
                       <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Agent Name</label>
                       <input required name="agentName" value={formData.agentName} onChange={handleChange} className="w-full p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Your Name" />
                   </div>
                   <div>
-                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1"> Agent Direct Phone</label>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5 ml-1">Agent Direct Phone</label>
                       <input required type="tel" name="agentPhone" value={formData.agentPhone} onChange={handleChange} className="w-full p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="+1 555 123 4567" />
                   </div>
                   <div>
